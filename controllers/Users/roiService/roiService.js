@@ -59,58 +59,10 @@ const processDailyROI = async (targetMemberId = null) => {
         const today = moment().utcOffset("+05:30").startOf("day");
         const todayStr = today.format("YYYY-MM-DD");
 
-        // --- EMERGENCY REPAIR BLOCK FOR APRIL 24th ---
-        // This will fix misdated records and add missing ones automatically
-        if (!targetMemberId) {
-            try {
-                console.log("🛠️ [ROI] Running Emergency Repair for April 24th Benefits...");
-                const date24 = "2026-04-24";
-                const payouts24 = await TransactionModel.find({
-                    transaction_date: date24,
-                    transaction_type: "ROI Payout"
-                });
-
-                let fixedCount = 0;
-                let addedCount = 0;
-
-                for (const payout of payouts24) {
-                    // 1. Fix misdated benefits (sent to today instead of 24th)
-                    const misdated = await TransactionModel.find({
-                        related_member_id: payout.member_id,
-                        transaction_type: "ROI Level Benefit",
-                        transaction_date: todayStr
-                    });
-                    
-                    if (misdated.length > 0) {
-                        for (const b of misdated) {
-                            b.transaction_date = date24;
-                            await b.save();
-                            await PayoutModel.updateMany(
-                                { payout_id: Number(b.reference_no), memberId: b.member_id },
-                                { date: new Date(date24) }
-                            );
-                            fixedCount++;
-                        }
-                    }
-
-                    // 2. Add missing benefits
-                    const existsOnTargetDate = await TransactionModel.exists({
-                        related_member_id: payout.member_id,
-                        transaction_type: "ROI Level Benefit",
-                        transaction_date: date24
-                    });
-
-                    if (!existsOnTargetDate) {
-                        await mlmService.distributeROICommission(payout.member_id, parseFloat(payout.ew_credit), null, date24);
-                        addedCount++;
-                    }
-                }
-                if (fixedCount > 0 || addedCount > 0) {
-                    console.log(`✅ [ROI] Emergency Repair completed: Fixed ${fixedCount}, Added ${addedCount} benefits.`);
-                }
-            } catch (err) {
-                console.error("❌ [ROI] Emergency Repair failed:", err.message);
-            }
+        // ✅ REQUIREMENT: Skip processing on weekends (Saturday & Sunday)
+        if (isWeekend(todayStr)) {
+            console.log(`📅 [ROI] [${todayStr}] Skipping processing as it is a weekend.`);
+            return { success: true, message: "Weekend - No processing", processedCount: 0 };
         }
 
         // Define filter for members

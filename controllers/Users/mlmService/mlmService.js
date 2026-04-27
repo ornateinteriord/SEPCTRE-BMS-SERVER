@@ -497,79 +497,69 @@ const distributeROICommission = async (memberId, roiAmount, session = null, cust
       const commissionAmount = Number(((roiAmount * percentage) / 100).toFixed(2));
       if (commissionAmount <= 0) continue;
 
-      try {
-        const payoutId = Date.now() + Math.floor(Math.random() * 1000) + upline.level + Math.floor(Math.random() * 1000);
-        const today = customDate || new Date().toISOString().split('T')[0];
+      const payoutId = Date.now() + Math.floor(Math.random() * 1000) + upline.level + Math.floor(Math.random() * 1000);
+      const today = customDate || new Date().toISOString().split('T')[0];
 
-        // Create payout record
-        const payout = new PayoutModel({
-          payout_id: payoutId.toString(),
-          date: today,
-          memberId: upline.sponsor_id,
-          payout_type: "ROI Level Benefit",
-          ref_no: memberId,
-          amount: commissionAmount,
-          level: upline.level,
-          sponsored_member_id: memberId,
-          sponsor_id: upline.sponsor_id,
-          status: "Completed",
-          Name: upline.sponsor_name,
-          mobileno: upline.sponsor_mobileno,
-          description: `ROI Level ${upline.level} benefit (${percentage}%) from member ${memberId}'s ROI (₹${roiAmount})`,
-          sponsor_status: upline.sponsor_status
-        });
+      // Create payout record
+      const payout = new PayoutModel({
+        payout_id: payoutId.toString(),
+        date: today,
+        memberId: upline.sponsor_id,
+        payout_type: "ROI Level Benefit",
+        // ✅ FIXED: ref_no must be unique per day/member/level to avoid DB collision
+        ref_no: `ROI-L-${memberId}-${upline.level}-${today}`,
+        amount: commissionAmount,
+        level: upline.level,
+        sponsored_member_id: memberId,
+        sponsor_id: upline.sponsor_id,
+        status: "Completed",
+        Name: upline.sponsor_name,
+        mobileno: upline.sponsor_mobileno,
+        description: `ROI Level ${upline.level} benefit (${percentage}%) from member ${memberId}'s ROI (₹${roiAmount})`,
+        sponsor_status: upline.sponsor_status
+      });
 
-        await payout.save({ session });
+      await payout.save({ session });
 
-        // Fixed: Use unique transaction ID based on payoutId to skip slow DB reads
-        const newTransactionId = `T-ROI-L-${payoutId}-${Math.floor(Math.random() * 1000)}`;
+      // Fixed: Use unique transaction ID based on payoutId to skip slow DB reads
+      const newTransactionId = `T-ROI-L-${payoutId}-${Math.floor(Math.random() * 1000)}`;
 
-        const transaction = new TransactionModel({
-          transaction_id: newTransactionId,
-          transaction_date: today,
-          member_id: upline.sponsor_id,
-          Name: upline.sponsor_name,
-          mobileno: upline.sponsor_mobileno,
-          reference_no: payoutId.toString(),
-          description: `ROI Level ${upline.level} Benefit`,
-          transaction_type: "ROI Level Benefit",
-          ew_credit: commissionAmount.toString(),
-          ew_debit: "0",
-          status: "Completed",
-          level: upline.level,
-          benefit_type: "ROI Level Income",
-          related_member_id: memberId,
-          related_member_name: sourceMember.Name,
-          related_payout_id: payoutId
-        });
+      const transaction = new TransactionModel({
+        transaction_id: newTransactionId,
+        transaction_date: today,
+        member_id: upline.sponsor_id,
+        Name: upline.sponsor_name,
+        mobileno: upline.sponsor_mobileno,
+        reference_no: payoutId.toString(),
+        description: `ROI Level ${upline.level} Benefit`,
+        transaction_type: "ROI Level Benefit",
+        ew_credit: commissionAmount.toString(),
+        ew_debit: "0",
+        status: "Completed",
+        level: upline.level,
+        benefit_type: "ROI Level Income",
+        related_member_id: memberId,
+        related_member_name: sourceMember.Name,
+        related_payout_id: payoutId
+      });
 
-        await transaction.save({ session });
+      await transaction.save({ session });
 
-        // Add amount to sponsor's wallet balance
-        await MemberModel.findOneAndUpdate(
-          { Member_id: upline.sponsor_id },
-          { $inc: { wallet_balance: commissionAmount } },
-          { session }
-        );
+      // Add amount to sponsor's wallet balance
+      await MemberModel.findOneAndUpdate(
+        { Member_id: upline.sponsor_id },
+        { $inc: { wallet_balance: commissionAmount } },
+        { session }
+      );
 
-        results.push({
-          level: upline.level,
-          sponsor_id: upline.sponsor_id,
-          amount: commissionAmount,
-          success: true
-        });
+      results.push({
+        level: upline.level,
+        sponsor_id: upline.sponsor_id,
+        amount: commissionAmount,
+        success: true
+      });
 
-        console.log(`💰 ROI Level ${upline.level}: ${upline.sponsor_id} gets ₹${commissionAmount} from ${memberId}`);
-
-      } catch (err) {
-        console.error(`❌ Error distributing ROI commission to ${upline.sponsor_id}:`, err);
-        results.push({
-          level: upline.level,
-          sponsor_id: upline.sponsor_id,
-          success: false,
-          error: err.message
-        });
-      }
+      console.log(`💰 ROI Level ${upline.level}: ${upline.sponsor_id} gets ₹${commissionAmount} from ${memberId}`);
     }
 
     return results;
