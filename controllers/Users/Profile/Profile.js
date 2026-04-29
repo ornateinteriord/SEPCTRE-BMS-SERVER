@@ -360,14 +360,13 @@ const updateMemberStatus = async (req, res) => {
 
     // Safety checks for status update
     if (status === 'active') {
-        if (oldStatus === 'active' || existingMember.roi_status === 'Active') {
-            // If already active, don't update ROI fields, just update other fields if any
-            // For now, we return error to prevent accidental duplicate activation logic
+        if (oldStatus === 'active') {
             return res.status(400).json({ 
                 success: false, 
-                message: "Member is already active. No changes made." 
+                message: "Member is already active." 
             });
         }
+        // If they are ROI completed, don't allow activation
         if (existingMember.roi_status === 'Completed') {
             return res.status(400).json({ 
                 success: false, 
@@ -377,8 +376,9 @@ const updateMemberStatus = async (req, res) => {
     }
 
     const updatePayload = { status };
-    if (oldStatus !== "active" && status === "active") {
+    if (existingMember.upgrade_status === "Pending" && status === "active") {
         updatePayload.roi_status = 'Active';
+        updatePayload.upgrade_status = 'Active';
         updatePayload.roi_payout_count = 0;
         updatePayload.roi_start_date = activationDate;
         updatePayload.roi_last_payout_date = activationDate;
@@ -388,8 +388,8 @@ const updateMemberStatus = async (req, res) => {
 
     const updatedMember = await MemberModel.findOneAndUpdate(query, updatePayload, { new: true });
 
-    // ✅ Create "Day 0" Payout and Transaction if newly activated
-    if (oldStatus !== "active" && status === "active") {
+    // ✅ Create "Day 0" Payout and Transaction if newly activated (from Pending)
+    if (existingMember.upgrade_status === "Pending" && status === "active") {
         const payoutId = Date.now() + Math.floor(Math.random() * 1000);
         const payout = new PayoutModel({
             payout_id: payoutId,
@@ -421,8 +421,8 @@ const updateMemberStatus = async (req, res) => {
         await Promise.all([payout.save(), activationTx.save()]);
     }
 
-    // If status changed to active (from any status) trigger MLM commissions
-    if (oldStatus !== "active" && status === "active") {
+    // If status changed to active (from Pending) trigger MLM commissions
+    if (existingMember.upgrade_status === "Pending" && status === "active") {
       try {
         // Trigger MLM commissions (Referral Update Only)
         const mlmResult = await triggerMLMCommissions({

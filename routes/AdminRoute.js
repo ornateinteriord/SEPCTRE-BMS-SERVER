@@ -34,7 +34,7 @@ router.post('/addnews',Authenticated,authorizeRoles("ADMIN"),addNews)
 router.get('/getholiday',Authenticated,authorizeRoles("ADMIN"),getHoliday)
 router.post('/addholiday',Authenticated,authorizeRoles("ADMIN"),addHoliday)
 router.post('/generate-package',Authenticated,authorizeRoles("ADMIN"),generatePackage)
-router.put('/update-status/:memberId',updateMemberStatus)
+router.put('/update-status/:memberId', Authenticated, authorizeRoles("ADMIN"), updateMemberStatus)
 // Admin can access all payouts or filter by member
 router.get('/all-daily-payouts', Authenticated, authorizeRoles("ADMIN"), getDailyPayout);
 router.get('/roi-summary', Authenticated, authorizeRoles("ADMIN"), getROISummary);
