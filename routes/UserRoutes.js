@@ -24,7 +24,7 @@ const router = express.Router();
 
 router.get("/member/:id", Authenticated, getMemberDetails);
 router.put("/member/:memberId", Authenticated, UpdateMemberDetails);
-router.put("/activate-package/:memberId", activateMemberPackage);
+router.put("/activate-package/:memberId", Authenticated, activateMemberPackage);
 
 
 router.get("/transactions", Authenticated, getTransactionDetails);
@@ -43,7 +43,7 @@ router.get('/sponsers/:memberId', Authenticated, getSponsers);
 router.get("/check-sponsor-reward/:memberId", Authenticated, checkSponsorReward);
 router.get('/multi-level-sponsors', Authenticated, getMultiLevelSponsorship);
 
-router.post("/mlm/trigger-commissions", triggerMLMCommissions);
+router.post("/mlm/trigger-commissions", Authenticated, triggerMLMCommissions);
 router.get("/mlm/commission-summary/:member_id", getMemberCommissionSummary);
 router.get("/mlm/upline-tree/:member_id", getUplineTree);
 // router.get("/mlm/payouts/:memberId", Authenticated, getMemberPayouts);

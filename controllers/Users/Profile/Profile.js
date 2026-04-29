@@ -6,6 +6,7 @@ const TransactionModel = require("../../../models/Transaction/Transaction");
 const PayoutModel = require("../../../models/Payout/Payout");
 const { triggerMLMCommissions } = require("../Payout/PayoutController");
 const { processMemberROI } = require("../roiService/roiService");
+const AddOnPackageModel = require("../../../models/Packages/AddOnPackage");
 
 const getMemberDetails = async (req, res) => {
   try {
@@ -77,52 +78,26 @@ const getMemberDetails = async (req, res) => {
 
 const activateMemberPackage = async (req, res) => {
   try {
+    if (req.user.role !== "ADMIN") {
+      return res.status(403).json({ success: false, message: "Access Denied" });
+    }
+
     const { memberId } = req.params;
     const { packageType } = req.body;
-
-    let query;
-    if (mongoose.Types.ObjectId.isValid(memberId)) {
-      query = { _id: memberId };
-    } else {
-      query = { Member_id: memberId };
+    if (!memberId || !packageType) {
+      return res.status(400).json({ success: false, message: "Member ID and package type are required" });
     }
 
-    // Fetch existing member
-    const existingMember = await MemberModel.findOne(query);
+    const existingMember = await MemberModel.findOne({ Member_id: memberId });
     if (!existingMember) {
-      return res.status(404).json({
-        success: false,
-        message: "Member not found"
-      });
+      return res.status(404).json({ success: false, message: "Member not found" });
     }
 
-    const oldStatus = existingMember.status;
-    
-    // Prevent resetting ROI if already active
-    if (oldStatus === 'active' || existingMember.roi_status === 'Active') {
-      return res.status(400).json({
-        success: false,
-        message: "Member already has an active package. Please use Add-on packages for further upgrades."
-      });
-    }
-
-    // Prevent activating if already completed 300 days
-    if (existingMember.roi_status === 'Completed' || (existingMember.roi_payout_count || 0) >= 300) {
-      return res.status(400).json({
-        success: false,
-        message: "This member has already completed their 300-day ROI cycle."
-      });
-    }
-
-    // Old packages (commented out — no longer in use)
-    // const packages = {
-    //   RD_1200: { name: "RD", value: 1200 },
-    //   RD_600:  { name: "RD", value: 600 },
-    // };
-
-    // Dynamically accept any BMS Plan amount (e.g. BMS_1200, BMS_5000)
+    // Dynamically accept any BMS Plan amount or "NONE"
     let selectedPackage = null;
-    if (packageType && packageType.startsWith("BMS_")) {
+    if (packageType === "NONE") {
+      selectedPackage = { name: "NONE", value: 0 };
+    } else if (packageType && packageType.startsWith("BMS_")) {
       const amtStr = packageType.replace("BMS_", "");
       const amt = Number(amtStr);
       if (!isNaN(amt) && amt > 0) {
@@ -131,59 +106,88 @@ const activateMemberPackage = async (req, res) => {
     }
 
     if (!selectedPackage) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid package type. Please select a valid BMS Plan.`
-      });
+      return res.status(400).json({ success: false, message: "Invalid package selection" });
     }
 
     const activationDate = moment().utcOffset("+05:30").format("YYYY-MM-DD");
-    // Update member
+
+    // ── CASE A: Activation WITHOUT Package ──
+    if (selectedPackage.name === "NONE") {
+      console.log(`👤 [Activation] Activating ${memberId} WITHOUT package.`);
+
+      const updatedMember = await MemberModel.findOneAndUpdate(
+        { Member_id: memberId },
+        {
+          status: "active",
+          Date_of_joining: activationDate
+        },
+        { new: true }
+      );
+
+      return res.status(200).json({
+        success: true,
+        data: updatedMember,
+        message: "Member activated successfully without a package."
+      });
+    }
+
+    // ── CASE B: Activation WITH Package ──
+    const amount = selectedPackage.value;
+    console.log(`💎 [Activation] Activating ${memberId} WITH ₹${amount} package.`);
+
+    // 1. Update member_tbl basic status
     const updatedMember = await MemberModel.findOneAndUpdate(
-      query,
+      { Member_id: memberId },
       {
-        status: 'active',
-        spackage: selectedPackage.name,
-        package_value: selectedPackage.value,
-        roi_status: 'Active',
-        roi_payout_count: 0,
-        roi_payout_target: selectedPackage.value * 2,
-        roi_start_date: activationDate,
-        roi_last_payout_date: activationDate,
+        status: "active",
+        spackage: "BMS Plan",
+        package_value: amount,
+        upgrade_status: "Active", // Activated with package
+        Date_of_joining: activationDate,
       },
       { new: true }
     );
 
     if (!updatedMember) {
-      return res.status(404).json({
-        success: false,
-        message: "Member not found"
-      });
+      return res.status(404).json({ success: false, message: "Member not found" });
     }
 
-    // ✅ Create "Day 0" Payout for record keeping (₹0 amount)
+    // 2. ✅ STORE IN ADD_ON PACKAGE TABLE (as requested)
+    const newAddOn = new AddOnPackageModel({
+      package_id: `PKG-P-${Date.now()}`, // P for Primary
+      member_id: memberId,
+      amount: amount,
+      roi_status: "Active",
+      roi_payout_target: amount * 2,
+      roi_payout_count: 0,
+      roi_start_date: activationDate,
+      roi_last_payout_date: activationDate,
+      admin_id: req.user.id || "ADMIN"
+    });
+    await newAddOn.save();
+
+    // 3. ✅ CREATE "DAY 0" PAYOUT AND TRANSACTION (₹0 records)
     const payoutId = Date.now() + Math.floor(Math.random() * 1000);
     const payout = new PayoutModel({
       payout_id: payoutId,
       date: moment().utcOffset("+05:30").toDate(),
-      memberId: updatedMember.Member_id,
-      payout_type: "ROI",
-      ref_no: `ACT-${updatedMember.Member_id}-0`,
+      memberId: memberId,
+      payout_type: "ROI (Primary)",
+      ref_no: `ACT-P-${newAddOn.package_id}-0`,
       amount: 0,
       count: 0,
       days: 300,
       status: "Approved",
-      description: "Package Activation"
+      description: "Primary Package Activation"
     });
 
-    // ✅ Create "Day 0" Transaction for record keeping (₹0 amount)
     const activationTx = new TransactionModel({
-      transaction_id: `ACT-TX-${payoutId}`,
+      transaction_id: `ACT-P-TX-${payoutId}`,
       transaction_date: activationDate,
-      member_id: updatedMember.Member_id,
+      member_id: memberId,
       Name: updatedMember.Name,
       mobileno: updatedMember.mobileno,
-      description: `Package Activation – Daily ROI (Day 0/300)`,
+      description: `Package Activation – Day 0/300 (₹${amount} pkg)`,
       transaction_type: "ROI Payout",
       ew_credit: "0",
       ew_debit: "0",
@@ -191,45 +195,34 @@ const activateMemberPackage = async (req, res) => {
       benefit_type: "ROI",
       reference_no: payout.ref_no
     });
-    
+
     await Promise.all([payout.save(), activationTx.save()]);
 
-    // MLM activation only when status changes to active
-    if (oldStatus !== "active" && updatedMember.status === "active") {
-      try {
-        // Trigger MLM commissions (Referral Update Only)
-        const mlmResult = await triggerMLMCommissions({
-          body: {
-            new_member_id: updatedMember.Member_id,
-            Sponsor_code: updatedMember.sponsor_id || updatedMember.Sponsor_code
-          }
-        }, {
-          status: (code) => ({ json: (data) => data }),
-          json: (data) => data
-        });
+    // 4. ✅ Trigger MLM level commissions
+    try {
+      req.body.new_member_id = memberId;
+      req.body.Sponsor_code = updatedMember.Sponsor_code;
+      
+      const mlmResult = await triggerMLMCommissions(req, {
+        status: (code) => ({ json: (data) => data }),
+        json: (data) => data
+      });
 
-        return res.status(200).json({
-          success: true,
-          data: updatedMember,
-          message: `${selectedPackage.name} package activated successfully`,
-          mlm_commission: mlmResult
-        });
-      } catch (mlmError) {
-        console.error("MLM Commission Error:", mlmError);
-        return res.status(200).json({
-          success: true,
-          data: updatedMember,
-          message: `${selectedPackage.name} package activated successfully (Referral update error)`,
-          mlm_error: mlmError.message
-        });
-      }
+      return res.status(200).json({
+        success: true,
+        data: updatedMember,
+        message: `${selectedPackage.name} activated and stored in add-on table.`,
+        mlm_result: mlmResult
+      });
+    } catch (mlmError) {
+      console.error("❌ MLM Error during activation:", mlmError);
+      return res.status(200).json({
+        success: true,
+        data: updatedMember,
+        message: "Member activated with package, but referral update failed.",
+        mlm_error: mlmError.message
+      });
     }
-
-    return res.status(200).json({
-      success: true,
-      data: updatedMember,
-      message: `${selectedPackage.name} package activated successfully`
-    });
 
   } catch (error) {
     console.error("Error activating package:", error);
@@ -240,7 +233,6 @@ const activateMemberPackage = async (req, res) => {
     });
   }
 };
-
 
 const getMember = async (req, res) => {
   try {
