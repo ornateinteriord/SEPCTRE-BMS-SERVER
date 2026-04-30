@@ -28,9 +28,33 @@ const getMemberDetails = async (req, res) => {
       });
     }
 
-    // If admin, return all members
+    // If admin, return all members with their total package value
     if (foundUser instanceof AdminModel) {
-      const members = await MemberModel.find();
+      const members = await MemberModel.aggregate([
+        {
+          $lookup: {
+            from: "add_on_package_tbl",
+            localField: "Member_id",
+            foreignField: "member_id",
+            as: "addons"
+          }
+        },
+        {
+          $addFields: {
+            // Calculate total sum of all packages (Primary + Add-ons)
+            total_package_value: {
+              $add: [
+                { $ifNull: ["$package_value", 0] },
+                { $sum: "$addons.amount" }
+              ]
+            }
+          }
+        },
+        {
+          $sort: { createdAt: -1 } // Optional: Keep recent members at top
+        }
+      ]);
+
       return res.status(200).json({
         success: true,
         data: foundUser,
