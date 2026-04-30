@@ -337,10 +337,10 @@ const UpdateMemberDetails = async (req, res) => {
 const updateMemberStatus = async (req, res) => {
   try {
     const { memberId } = req.params;
-    const { status } = req.body;
+    const { status, upgrade_status } = req.body;
 
-    if (!status) {
-      return res.status(400).json({ success: false, message: "Status is required in body" });
+    if (!status && !upgrade_status) {
+      return res.status(400).json({ success: false, message: "Status or Upgrade Status is required" });
     }
 
     let query;
@@ -356,37 +356,32 @@ const updateMemberStatus = async (req, res) => {
     }
 
     const activationDate = moment().utcOffset("+05:30").format("YYYY-MM-DD");
-    const oldStatus = existingMember.status;
+    const updatePayload = {};
 
-    // Safety checks for status update
-    if (status === 'active') {
-        if (oldStatus === 'active') {
-            return res.status(400).json({ 
-                success: false, 
-                message: "Member is already active." 
-            });
+    // Handle main status update
+    if (status) {
+        if (status === 'active' && existingMember.status === 'active') {
+            return res.status(400).json({ success: false, message: "Member is already active." });
         }
-        // If they are ROI completed, don't allow activation
-        if (existingMember.roi_status === 'Completed') {
-            return res.status(400).json({ 
-                success: false, 
-                message: "ROI cycle already completed for this member." 
-            });
-        }
+        updatePayload.status = status;
     }
 
-    const updatePayload = { status };
+    // Handle upgrade_status (UI visibility) update
+    if (upgrade_status) {
+        updatePayload.upgrade_status = upgrade_status;
+    }
+
+    // Special logic for first-time activation from Pending
     if (existingMember.upgrade_status === "Pending" && status === "active") {
         updatePayload.roi_status = 'Active';
         updatePayload.upgrade_status = 'Active';
         updatePayload.roi_payout_count = 0;
         updatePayload.roi_start_date = activationDate;
         updatePayload.roi_last_payout_date = activationDate;
-        // If we have existing member's package value, we use it. Otherwise, initialize to 0 or handle separately.
         updatePayload.roi_payout_target = (existingMember.package_value || 0) * 2;
     }
 
-    const updatedMember = await MemberModel.findOneAndUpdate(query, updatePayload, { new: true });
+    const updatedMember = await MemberModel.findOneAndUpdate(query, { $set: updatePayload }, { new: true });
 
     // ✅ Create "Day 0" Payout and Transaction if newly activated (from Pending)
     if (existingMember.upgrade_status === "Pending" && status === "active") {
@@ -419,40 +414,28 @@ const updateMemberStatus = async (req, res) => {
             reference_no: payout.ref_no
         });
         await Promise.all([payout.save(), activationTx.save()]);
+
+        try {
+            // Trigger MLM commissions
+            await triggerMLMCommissions({
+              body: {
+                new_member_id: updatedMember.Member_id,
+                Sponsor_code: updatedMember.sponsor_id || updatedMember.Sponsor_code
+              }
+            }, {
+              status: (code) => ({ json: (data) => data }),
+              json: (data) => data
+            });
+        } catch (mlmError) {
+            console.error("MLM Commission Error:", mlmError);
+        }
     }
 
-    // If status changed to active (from Pending) trigger MLM commissions
-    if (existingMember.upgrade_status === "Pending" && status === "active") {
-      try {
-        // Trigger MLM commissions (Referral Update Only)
-        const mlmResult = await triggerMLMCommissions({
-          body: {
-            new_member_id: updatedMember.Member_id,
-            Sponsor_code: updatedMember.sponsor_id || updatedMember.Sponsor_code
-          }
-        }, {
-          status: (code) => ({ json: (data) => data }),
-          json: (data) => data
-        });
-
-        return res.status(200).json({
-          success: true,
-          message: "Member status updated to active",
-          data: updatedMember,
-          mlm_commission: mlmResult
-        });
-      } catch (mlmError) {
-        console.error("MLM Commission Error:", mlmError);
-        return res.status(200).json({
-          success: true,
-          message: "Member status updated to active (Referral update error)",
-          data: updatedMember,
-          mlm_error: mlmError.message
-        });
-      }
-    }
-
-    return res.status(200).json({ success: true, message: "Member status updated", data: updatedMember });
+    return res.status(200).json({ 
+        success: true, 
+        message: "Member status updated", 
+        data: updatedMember 
+    });
   } catch (error) {
     console.error("Error updating member status:", error);
     return res.status(500).json({ success: false, message: "Server error" });
