@@ -280,10 +280,44 @@ const login = async (req, res) => {
   }
 };
 
+const impersonate = async (req, res) => {
+  try {
+    const { memberId } = req.body;
+    if (!memberId) {
+      return res.status(400).json({ success: false, message: "Member ID is required" });
+    }
+
+    const member = await MemberModel.findOne({ Member_id: memberId });
+    if (!member) {
+      return res.status(404).json({ success: false, message: "Member not found" });
+    }
+
+    const token = jwt.sign(
+      {
+        id: member._id,
+        role: "USER",
+        memberId: member.Member_id,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "2h" } // Short lived token for impersonation
+    );
+
+    return res.status(200).json({
+      success: true,
+      token,
+      message: `Impersonation token generated for ${member.Name}`,
+    });
+  } catch (error) {
+    console.error("Impersonation Error:", error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
 module.exports = {
   signup,
   getSponsorDetails,
   recoverPassword,
   resetPassword,
   login,
+  impersonate,
 };
