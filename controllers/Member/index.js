@@ -408,6 +408,15 @@ const getMemberInterestsByAccountGroup = async (req, res) => {
             console.log(`[MemberInterests] Fallback PlanType: ${planType}`);
         }
 
+        // For SB (SAVING) and CA (CURRENT), we don't allow interest rates as per user request
+        if (planType === "SAVING" || planType === "CURRENT") {
+            return res.status(200).json({
+                success: true,
+                message: `No interest plans for ${planType} accounts`,
+                data: []
+            });
+        }
+
         const interests = await InterestModel.find({
             $or: [
                 { plan_type: planType },
@@ -508,38 +517,36 @@ const createMemberAccount = async (req, res) => {
         }
 
         // Professional Account Number Generation
-        // Format: [PREFIX][YEAR][SEQUENCE]
-        // Example: SB202400001, RD202400001
+        // Format: [PREFIX][SEQUENCE]
+        // Example: SB000001, RD000001, PIG000001
         
         const groupName = accountGroup.account_group_name?.toUpperCase() || "";
         let typePrefix = "ACC";
-        if (groupName.includes("SAVING")) typePrefix = "SB";
-        else if (groupName.includes("CURRENT")) typePrefix = "CA";
-        else if (groupName.includes("RECURRING")) typePrefix = "RD";
-        else if (groupName.includes("FIXED")) typePrefix = "FD";
-        else if (groupName.includes("PIGMY")) typePrefix = "PG";
-        else if (groupName.includes("MONTHLY")) typePrefix = "MI";
-        else if (groupName.includes("DAILY")) typePrefix = "PG";
-
-        const currentYear = new Date().getFullYear().toString();
+        if (groupName.includes("SAVING") || groupName === "SB") typePrefix = "SB";
+        else if (groupName.includes("CURRENT") || groupName === "CA" || groupName === "CUR") typePrefix = "CA";
+        else if (groupName.includes("RECURRING") || groupName === "RD") typePrefix = "RD";
+        else if (groupName.includes("FIXED") || groupName === "FD") typePrefix = "FD";
+        else if (groupName.includes("PIGMY") || groupName === "PIG") typePrefix = "PIG";
+        else if (groupName.includes("MONTHLY") || groupName === "MIS") typePrefix = "MI";
+        else if (groupName.includes("DAILY")) typePrefix = "PIG";
         
-        // Find the last account with this prefix and year to determine next sequence
+        // Find the last account with this prefix to determine next sequence
         const lastAccountWithPrefix = await AccountsModel.findOne({
-            account_no: { $regex: new RegExp(`^${typePrefix}${currentYear}`) }
+            account_no: { $regex: new RegExp(`^${typePrefix}`) }
         }).sort({ account_no: -1 }).limit(1);
 
         let newAccountNo;
         if (lastAccountWithPrefix && lastAccountWithPrefix.account_no) {
-            // Extract the sequence part (everything after prefix and year)
-            const sequencePart = lastAccountWithPrefix.account_no.substring(typePrefix.length + currentYear.length);
+            // Extract the sequence part (everything after prefix)
+            const sequencePart = lastAccountWithPrefix.account_no.substring(typePrefix.length);
             const lastSeq = parseInt(sequencePart);
             if (!isNaN(lastSeq)) {
-                newAccountNo = `${typePrefix}${currentYear}${(lastSeq + 1).toString().padStart(5, '0')}`;
+                newAccountNo = `${typePrefix}${(lastSeq + 1).toString().padStart(6, '0')}`;
             } else {
-                newAccountNo = `${typePrefix}${currentYear}00001`;
+                newAccountNo = `${typePrefix}000001`;
             }
         } else {
-            newAccountNo = `${typePrefix}${currentYear}00001`;
+            newAccountNo = `${typePrefix}000001`;
         }
 
         // Create new account
@@ -554,7 +561,7 @@ const createMemberAccount = async (req, res) => {
             // introducer: null, // Member self-service often doesn't specify introducer directly here, or it comes from Member profile
             entered_by: memberId, // Created by self
             // ref_id,
-            interest_rate: interest_rate || 0,
+            interest_rate: (groupName.includes("SAVING") || groupName === "SB" || groupName.includes("CURRENT") || groupName === "CA") ? 0 : (interest_rate || 0),
             duration: duration || 0,
             date_of_maturity: date_of_maturity,
             date_of_close: null,
