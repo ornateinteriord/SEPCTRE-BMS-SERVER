@@ -62,12 +62,6 @@
                 "general": 10.00,
                 "seniorCitizen": 10.50
             }
-        },
-        "SB": {
-            "ON_DEMAND": {
-                "general": 4.00,
-                "seniorCitizen": 4.50
-            }
         }
     },
     "commissionLevels": {
