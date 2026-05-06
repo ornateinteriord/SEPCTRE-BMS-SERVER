@@ -110,11 +110,21 @@ const validateCommissionEligibility = (transaction, config) => {
         return { eligible: false, reason: "Commission system is disabled" };
     }
 
+    // NEW: Restrict to "Account Opening" only
+    console.log(`   Transaction Type: ${transaction.transaction_type}`);
+    if (transaction.transaction_type !== "Account Opening") {
+        console.log("   Result: ❌ Not Eligible - Not an 'Account Opening' transaction");
+        return { 
+            eligible: false, 
+            reason: "Only 'Account Opening' transactions are eligible for commission" 
+        };
+    }
+
     console.log(`   Transaction Amount: ₹${transaction.credit}`);
 
-    // Check if account type is commission-eligible (FD, RD, Pigmy)
+    // Check if account type is commission-eligible (e.g. Pigmy/AGP005)
     const accountTypeId = transaction.account_type?.toString();
-    const eligibleTypes = config.eligibleAccountTypes || ["1", "2", "3"]; // Fallback to old format
+    const eligibleTypes = config.eligibleAccountTypes || [];
 
     console.log(`   Account Type ID: ${accountTypeId}`);
     console.log(`   Eligible Types: ${eligibleTypes.join(', ')}`);
