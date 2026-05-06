@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const ReceiptsModel = require("../../../models/receipts.model.js");
 const AccountsModel = require("../../../models/accounts.model.js");
 const TransactionModel = require("../../../models/transaction.model.js");
@@ -61,17 +62,27 @@ const createReceipt = async (req, res) => {
             console.log(`📥 Receipt: Processing account update for account_id: ${account_details.account_id}, amount: ${amount}`);
 
             // First, check if account exists and handle null account_amount
-            const existingAccount = await AccountsModel.findOne({ account_id: account_details.account_id });
+            // The frontend sends _id as account_id, so we check both
+            const existingAccount = await AccountsModel.findOne({ 
+                $or: [
+                    { _id: mongoose.Types.ObjectId.isValid(account_details.account_id) ? account_details.account_id : null },
+                    { account_id: account_details.account_id }
+                ].filter(Boolean)
+            });
 
             if (!existingAccount) {
                 console.log(`❌ Account not found: ${account_details.account_id}`);
+                return res.status(400).json({
+                    success: false,
+                    message: `Account not found: ${account_details.account_id}`
+                });
             } else {
                 console.log(`📊 Existing account balance: ${existingAccount.account_amount}`);
 
                 // If account_amount is null, set it to 0 first
                 if (existingAccount.account_amount === null || existingAccount.account_amount === undefined) {
                     await AccountsModel.updateOne(
-                        { account_id: account_details.account_id },
+                        { _id: existingAccount._id },
                         { $set: { account_amount: 0 } }
                     );
                     console.log(`🔧 Initialized null account_amount to 0`);
@@ -79,7 +90,7 @@ const createReceipt = async (req, res) => {
 
                 // Update account balance - ADD money for receipt
                 const account = await AccountsModel.findOneAndUpdate(
-                    { account_id: account_details.account_id },
+                    { _id: existingAccount._id },
                     { $inc: { account_amount: amount } },
                     { new: true }
                 );

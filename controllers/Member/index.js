@@ -181,7 +181,10 @@ const getMemberBasicInfo = async (req, res) => {
             });
         }
 
-        if (member.status !== "active") {
+        const userRole = req.user?.role;
+        const isAdmin = userRole === "ADMIN" || userRole === "ADMIN_01";
+
+        if (member.status !== "active" && !isAdmin) {
             return res.status(403).json({
                 success: false,
                 message: "Member account is not active"
@@ -192,10 +195,10 @@ const getMemberBasicInfo = async (req, res) => {
             success: true,
             message: "Member info fetched successfully",
             data: {
-                member_id: member.member_id,
-                name: member.name,
-                contact: member.contactno,
-                email: member.emailid
+                member_id: member.member_id || member.Member_id,
+                name: member.name || member.Name,
+                contactno: member.contactno || member.mobileno,
+                emailid: member.emailid || member.email
             }
         });
     } catch (error) {
@@ -228,7 +231,10 @@ const getMemberAccountsPublic = async (req, res) => {
             });
         }
 
-        if (member.status !== "active") {
+        const userRole = req.user?.role;
+        const isAdmin = userRole === "ADMIN" || userRole === "ADMIN_01";
+
+        if (member.status !== "active" && !isAdmin) {
             return res.status(403).json({
                 success: false,
                 message: "Member account is not active"
@@ -244,7 +250,7 @@ const getMemberAccountsPublic = async (req, res) => {
                         { member_id: memberId },           // String comparison
                         { member_id: parseInt(memberId) }   // Number comparison
                     ],
-                    status: "active"
+                    status: isAdmin ? { $in: ["active", "pending"] } : "active"
                 }
             },
             {
@@ -263,7 +269,7 @@ const getMemberAccountsPublic = async (req, res) => {
             },
             {
                 $project: {
-                    _id: 0,
+                    _id: 1,
                     account_id: 1,
                     account_no: 1,
                     account_type: 1,

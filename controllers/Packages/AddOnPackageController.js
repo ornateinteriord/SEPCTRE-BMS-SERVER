@@ -1,11 +1,15 @@
 const AddOnRequestModel = require("../../models/Packages/AddOnRequest");
 const AddOnPackageModel = require("../../models/Packages/AddOnPackage");
 const MemberModel = require("../../models/Users/Member");
+const AccountsModel = require("../../models/accounts.model");
+const AccountGroupModel = require("../../models/accountGroup.model");
 const mlmService = require("../Users/mlmService/mlmService");
 const { processAddOnROI, processMemberROI } = require("../Users/roiService/roiService");
 const PayoutModel = require("../../models/Payout/Payout");
 const TransactionModel = require("../../models/Transaction/Transaction");
 const moment = require("moment");
+const ReceiptsModel = require("../../models/receipts.model");
+const generateTransactionId = require("../../utils/generateTransactionId");
 
 
 // User requests a new addon package layer
@@ -51,10 +55,69 @@ const getAllRequests = async (req, res) => {
 const getMemberAddOns = async (req, res) => {
   try {
     const { member_id } = req.params;
+    
+    // 1. Fetch standard add-on packages
     const addons = await AddOnPackageModel.find({
       member_id
     }).sort({ createdAt: 1 });
-    res.status(200).json({ success: true, addons });
+    
+    // 2. Fetch FD accounts from accounts_tbl
+    // First get the group IDs for FD
+    const fdGroups = await AccountGroupModel.find({
+        account_group_name: { $regex: /FIXED DEPOSIT|FD/i }
+    }).select('account_group_id');
+    
+    const fdGroupIds = fdGroups.map(g => g.account_group_id);
+    
+    const fdAccounts = await AccountsModel.find({
+        member_id: member_id,
+        $or: [
+            { account_type: { $in: fdGroupIds } },
+            { account_no: { $regex: /^FD/i } }
+        ],
+        status: { $ne: "closed" }
+    });
+    
+    // 3. Map FD accounts to look like addons
+    const mappedFDs = fdAccounts.map(acc => {
+        // Calculate progress for FD if possible
+        let progressCount = 0;
+        if (acc.date_of_opening && acc.date_of_maturity) {
+            const start = moment(acc.date_of_opening);
+            const end = moment(acc.date_of_maturity);
+            const now = moment();
+            const totalDays = end.diff(start, 'days');
+            const elapsedDays = now.diff(start, 'days');
+            
+            if (totalDays > 0) {
+                // Map to 300 scale for frontend compatibility if needed, 
+                // or we'll handle it in frontend
+                progressCount = Math.max(0, Math.min(elapsedDays, totalDays));
+                // If we want to use the frontend's /300 logic:
+                // progressCount = (elapsedDays / totalDays) * 300;
+            }
+        }
+
+        return {
+            package_id: acc.account_no || acc.account_id,
+            member_id: acc.member_id,
+            amount: acc.account_amount,
+            roi_status: acc.status === 'active' ? 'Active' : 'Pending',
+            roi_payout_target: acc.net_amount || (acc.account_amount + (acc.interest_amount || 0)),
+            roi_payout_count: progressCount, 
+            roi_start_date: acc.date_of_opening,
+            isFD: true,
+            interest_rate: acc.interest_rate,
+            duration: acc.duration,
+            date_of_maturity: acc.date_of_maturity,
+            account_type_name: "Fixed Deposit"
+        };
+    });
+    
+    // Combine them
+    const combinedAddOns = [...addons, ...mappedFDs];
+
+    res.status(200).json({ success: true, addons: combinedAddOns });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -205,6 +268,43 @@ const evaluateRequest = async (req, res) => {
         }
       } catch (commErr) {
         console.error(`⚠️ Commission distribution failed for Package ${request_id}:`, commErr.message);
+      }
+
+      // ✅ NEW: INTEGRATE WITH BANKING RECEIPTS
+      try {
+        console.log(`🧾 [Banking] Generating receipt for Package Approval: ${request_id}`);
+        
+        // 1. Generate Receipt ID
+        const lastReceipt = await ReceiptsModel.findOne().sort({ receipt_id: -1 }).limit(1);
+        let newReceiptId = "RPT0001";
+        if (lastReceipt && lastReceipt.receipt_id) {
+          const numericPart = lastReceipt.receipt_id.replace(/^RPT/, '');
+          const lastId = parseInt(numericPart);
+          if (!isNaN(lastId)) {
+            newReceiptId = `RPT${(lastId + 1).toString().padStart(4, '0')}`;
+          }
+        }
+
+        // 2. Create Receipt Voucher
+        const member = await MemberModel.findOne({ Member_id: request.member_id });
+        await ReceiptsModel.create({
+          receipt_id: newReceiptId,
+          receipt_date: new Date(),
+          received_from: member ? member.Name : request.member_id,
+          receipt_details: `Package Purchase - ${request.requested_amount}`,
+          mode_of_payment_received: "Wallet/Adjustment",
+          amount: request.requested_amount,
+          status: "active",
+          ref_no: request_id,
+          receipt_no: `REC-${Date.now()}`,
+          entered_by: admin_id || "SYSTEM",
+          branch_code: member ? (member.branch_id || "BRN001") : "BRN001",
+          member_id: request.member_id
+        });
+        
+        console.log(`✅ Banking Receipt generated: ${newReceiptId}`);
+      } catch (receiptErr) {
+        console.error(`❌ Banking Receipt generation failed for Package ${request_id}:`, receiptErr.message);
       }
     }
 

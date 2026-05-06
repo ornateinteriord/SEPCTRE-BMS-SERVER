@@ -1,6 +1,7 @@
 const WithdrawRequestModel = require("../../models/withdrawRequest.model");
 const CommissionModel = require("../../models/commission.model");
 const TransactionModel = require("../../models/transaction.model");
+const PaymentsModel = require("../../models/payments.model");
 const mongoose = require("mongoose");
 
 // User: Request Commission Withdrawal
@@ -187,6 +188,42 @@ exports.approveWithdrawal = async (req, res) => {
                     paid_by: "ADMIN"
                 });
                 await newTransaction.save({ session });
+
+                // ✅ NEW: INTEGRATE WITH BANKING PAYMENTS
+                try {
+                    console.log(`🧾 [Banking] Generating Payment Voucher for Withdrawal: ${request_id}`);
+                    
+                    // 1. Generate Payment ID
+                    const lastPayment = await PaymentsModel.findOne().sort({ payment_id: -1 }).limit(1);
+                    let newPaymentId = "PAY0001";
+                    if (lastPayment && lastPayment.payment_id) {
+                        const numericPart = lastPayment.payment_id.replace(/^PAY/, '');
+                        const lastId = parseInt(numericPart);
+                        if (!isNaN(lastId)) {
+                            newPaymentId = `PAY${(lastId + 1).toString().padStart(4, '0')}`;
+                        }
+                    }
+
+                    // 2. Create Payment Voucher
+                    await PaymentsModel.create([{
+                        payment_id: newPaymentId,
+                        payment_date: new Date(),
+                        paid_to: member ? member.name : request.member_id,
+                        payment_details: `Withdrawal - ${request.source_type} - ${request_id}`,
+                        mode_of_payment_paid: "Bank/Online",
+                        amount: request.amount,
+                        status: "active",
+                        ref_no: request_id,
+                        payment_no: transaction_id || `W-${Date.now()}`,
+                        entered_by: "ADMIN",
+                        branch_code: member ? (member.branch_id || "BRN001") : "BRN001",
+                        member_id: request.member_id
+                    }], { session });
+
+                    console.log(`✅ Banking Payment generated: ${newPaymentId}`);
+                } catch (paymentErr) {
+                    console.error(`❌ Banking Payment generation failed for Withdrawal ${request_id}:`, paymentErr.message);
+                }
             }
 
             request.status = 'Completed'; // Or 'Approved'
