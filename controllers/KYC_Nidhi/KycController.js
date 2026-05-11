@@ -125,9 +125,6 @@ exports.submitKYC = async (req, res) => {
       ref_no,
       bankAccount,
       ifsc,
-      pan,
-      aadhar_no,
-      address,
       bankName,
       panImage,
       aadhaarImage,
@@ -155,11 +152,7 @@ exports.submitKYC = async (req, res) => {
     // Save details first (audit safety)
     member.account_number = bankAccount || member.account_number;
     member.ifsc_code = ifsc || member.ifsc_code;
-    member.Pan_no = pan || member.Pan_no;
-    member.pan_no = pan || member.pan_no; // Sync both for compatibility
-    member.aadharcard_no = aadhar_no || member.aadharcard_no;
     member.bank_name = bankName || member.bank_name;
-    member.address = address || member.address;
     member.kycStatus = "PROCESSING";
     member.panImage = panImage || member.panImage;
     member.aadhaarImage = aadhaarImage || member.aadhaarImage;
