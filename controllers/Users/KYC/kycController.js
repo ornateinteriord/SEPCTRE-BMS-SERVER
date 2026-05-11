@@ -8,6 +8,7 @@ exports.submitKYC = async (req, res) => {
       bankAccount,
       ifsc,
       pan,
+      aadhar_no,
       address,
       bankName,
       panImage,
@@ -33,10 +34,11 @@ exports.submitKYC = async (req, res) => {
     if (!passbookImage) missingDocuments.push("Passbook Image");
     if (!rationCardImage) missingDocuments.push("Ration Card Image");
     if (!profileImage) missingDocuments.push("Profile Image");
+    if (!aadhar_no) missingDocuments.push("Aadhaar Number");
 
     if (missingDocuments.length > 0) {
       return res.status(400).json({
-        message: `Missing required documents: ${missingDocuments.join(", ")}`
+        message: `Missing required fields/documents: ${missingDocuments.join(", ")}`
       });
     }
 
@@ -125,6 +127,7 @@ exports.submitKYC = async (req, res) => {
     member.account_number = bankAccount;
     member.ifsc_code = ifsc;
     member.Pan_no = pan;
+    member.aadharcard_no = aadhar_no;
     member.bank_name = bankName;
     member.address = address;
     member.kycStatus = "PROCESSING";
