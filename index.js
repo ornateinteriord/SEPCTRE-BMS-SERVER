@@ -63,7 +63,7 @@ const io = new Server(server, {
       const isNgrok = origin?.endsWith("ngrok-free.dev");
       const socketAllowedOrigins = [
         process.env.FRONTEND_URL,
-        "https://bms-foundation-web-ui.vercel.app",
+        "https://sepctre-bms-ui.vercel.app",
         "https://mscs-beige.vercel.app",
         "https://biccsl.vercel.app",
         "https://www.bmsfoundation.biz",
@@ -125,7 +125,7 @@ io.on("connection", (socket) => {
 // ======================================================
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  "https://bms-foundation-web-ui.vercel.app",
+  "https://sepctre-bms-ui.vercel.app",
   "https://mscs-beige.vercel.app",
   "https://biccsl.vercel.app",
   "https://www.bmsfoundation.biz",
@@ -255,11 +255,11 @@ const startServer = async () => {
       console.log(`🌍 Server running on port ${PORT}`);
       console.log("🔔 Cashfree webhook ready");
       console.log("💬 WebSocket server ready");
-      
+
       // Initialize Cron Jobs (Only for Local/VPS, Vercel uses Crons field)
       if (process.env.VERCEL !== "1") {
-          initCronJobs();
-          startMaturityScheduler();
+        initCronJobs();
+        startMaturityScheduler();
       }
     });
 
