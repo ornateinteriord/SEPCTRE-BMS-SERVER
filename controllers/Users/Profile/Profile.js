@@ -157,7 +157,7 @@ const activateMemberPackage = async (req, res) => {
 
     // ── CASE B: Activation WITH Package ──
     const amount = selectedPackage.value;
-    console.log(`💎 [Activation] Activating ${memberId} WITH ₹${amount} package.`);
+    console.log(`💎 [Activation] Activating ${memberId} WITH $${amount} package.`);
 
     // 1. Update member_tbl basic status
     const updatedMember = await MemberModel.findOneAndUpdate(
@@ -190,7 +190,7 @@ const activateMemberPackage = async (req, res) => {
     });
     await newAddOn.save();
 
-    // 3. ✅ CREATE "DAY 0" PAYOUT AND TRANSACTION (₹0 records)
+    // 3. ✅ CREATE "DAY 0" PAYOUT AND TRANSACTION ($0 records)
     const payoutId = Date.now() + Math.floor(Math.random() * 1000);
     const payout = new PayoutModel({
       payout_id: payoutId,
@@ -211,7 +211,7 @@ const activateMemberPackage = async (req, res) => {
       member_id: memberId,
       Name: updatedMember.Name,
       mobileno: updatedMember.mobileno,
-      description: `Package Activation – Day 0/300 (₹${amount} pkg)`,
+      description: `Package Activation – Day 0/300 ($${amount} pkg)`,
       transaction_type: "ROI Payout",
       ew_credit: "0",
       ew_debit: "0",

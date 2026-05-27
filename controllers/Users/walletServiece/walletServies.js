@@ -16,10 +16,23 @@ const getWalletOverview = async (req, res) => {
 
     const transactions = await TransactionModel.find({ member_id: memberId });
 
-    // Filter out loan-related transactions
+    // === TOP UP WALLET (completely separate) ===
+    const topUpTransactions = transactions.filter(tx =>
+      tx.transaction_type === 'Top up'
+    );
+    const topUpCredits = topUpTransactions
+      .filter(tx => tx.status === 'Completed' || tx.status === 'Approved')
+      .reduce((acc, tx) => acc + (parseFloat(tx.ew_credit) || 0), 0);
+    const topUpDebits = topUpTransactions
+      .filter(tx => tx.status === 'Completed' || tx.status === 'Approved')
+      .reduce((acc, tx) => acc + (parseFloat(tx.ew_debit) || 0), 0);
+    const topUpBalance = Math.max(0, topUpCredits - topUpDebits);
+
+    // === NORMAL WALLET (exclude loan AND top-up transactions) ===
     const nonLoanTransactions = transactions.filter(tx =>
       !tx.transaction_type?.toLowerCase().includes('loan') &&
-      !tx.description?.toLowerCase().includes('loan')
+      !tx.description?.toLowerCase().includes('loan') &&
+      tx.transaction_type !== 'Top up'
     );
 
     const completedAndPendingTx = nonLoanTransactions.filter(tx =>
@@ -126,6 +139,9 @@ const getWalletOverview = async (req, res) => {
         primaryPackage: member.package_value || 0,
         addOnPackages: totalAddonAmount,
         totalPackages: (member.package_value || 0) + totalAddonAmount,
+        // Top Up Wallet (completely separate)
+        topUpBalance: topUpBalance.toFixed(2),
+        topUpTransactions: topUpTransactions.sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date)),
         // Loan information (for transparency)
         loanInfo: {
           totalLoanAmount: totalLoanCredits.toFixed(2),
@@ -134,9 +150,9 @@ const getWalletOverview = async (req, res) => {
           loanTransactionsCount: loanTransactions.length
         },
         calculation: {
-          formula: "Available Balance = Sum of All Credits - Sum of All Debits (excluding loan transactions)",
-          breakdown: `₹${completedAndPendingTx.reduce((acc, tx) => acc + (parseFloat(tx.ew_credit) || 0), 0).toFixed(2)} - ₹${completedAndPendingTx.reduce((acc, tx) => acc + (parseFloat(tx.ew_debit) || 0), 0).toFixed(2)} = ₹${Math.max(0, availableBalance).toFixed(2)}`,
-          note: "Available balance excludes loan transactions. Pending withdrawals: ₹" + pendingWithdrawals.toFixed(2)
+          formula: "Available Balance = Sum of All Credits - Sum of All Debits (excluding loan and top-up transactions)",
+          breakdown: `$${completedAndPendingTx.reduce((acc, tx) => acc + (parseFloat(tx.ew_credit) || 0), 0).toFixed(2)} - $${completedAndPendingTx.reduce((acc, tx) => acc + (parseFloat(tx.ew_debit) || 0), 0).toFixed(2)} = $${Math.max(0, availableBalance).toFixed(2)}`,
+          note: "Available balance excludes loan and top-up transactions. Pending withdrawals: $" + pendingWithdrawals.toFixed(2)
         },
       },
     });
@@ -226,7 +242,8 @@ const getWalletWithdraw = async (req, res) => {
 
     const nonLoanTransactions = allTransactions.filter(tx =>
       !tx.transaction_type?.toLowerCase().includes('loan') &&
-      !tx.description?.toLowerCase().includes('loan')
+      !tx.description?.toLowerCase().includes('loan') &&
+      tx.transaction_type !== 'Top up'
     );
 
     let totalCredits = 0;
@@ -277,7 +294,7 @@ const getWalletWithdraw = async (req, res) => {
     if (withdrawalAmount < 100) {
       return res.status(400).json({
         success: false,
-        message: "Minimum withdrawal amount is ₹100",
+        message: "Minimum withdrawal amount is $100",
         minimum: 100,
         loanStatus: {
           hasUnpaidLoan: hasUnpaidLoan,
@@ -411,9 +428,9 @@ const getWalletWithdraw = async (req, res) => {
         },
         status: "Pending",
         calculation: {
-          deduction: `5% of ₹${withdrawalAmount.toFixed(2)} = ₹${deduction.toFixed(2)}`,
-          netAmount: `₹${withdrawalAmount.toFixed(2)} - ₹${deduction.toFixed(2)} = ₹${netAmount.toFixed(2)}`,
-          balanceUpdate: `₹${availableBalance.toFixed(2)} - ₹${withdrawalAmount.toFixed(2)} = ₹${newAvailableBalance.toFixed(2)}`
+          deduction: `5% of $${withdrawalAmount.toFixed(2)} = $${deduction.toFixed(2)}`,
+          netAmount: `$${withdrawalAmount.toFixed(2)} - $${deduction.toFixed(2)} = $${netAmount.toFixed(2)}`,
+          balanceUpdate: `$${availableBalance.toFixed(2)} - $${withdrawalAmount.toFixed(2)} = $${newAvailableBalance.toFixed(2)}`
         },
         note: "Your available balance excludes loan transactions and includes this pending withdrawal."
       },

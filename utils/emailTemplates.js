@@ -389,15 +389,15 @@ const generateTransactionEmail = (name, memberId, transactionId, accountNo, acco
         { label: 'Account Number', value: accountNo },
         { label: 'Account Type', value: accountType },
         { label: 'Transaction Type', value: `<span style="color: ${isCredit ? '#10b981' : '#ef4444'};">${isCredit ? '↓ Credit' : '↑ Debit'}</span>` },
-        { label: 'Amount', value: `₹${parseFloat(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
-        { label: 'New Balance', value: `₹${parseFloat(balance).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+        { label: 'Amount', value: `$${parseFloat(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+        { label: 'New Balance', value: `$${parseFloat(balance).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
         { label: 'Description', value: description || 'N/A' },
         { label: 'Date & Time', value: new Date().toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'short' }) }
     ])}
 
     ${isCredit ?
-            getSuccessAlert(`Amount of ₹${parseFloat(amount).toLocaleString('en-IN')} has been credited to your account.`) :
-            getWarningAlert(`Amount of ₹${parseFloat(amount).toLocaleString('en-IN')} has been debited from your account.`)
+            getSuccessAlert(`Amount of $${parseFloat(amount).toLocaleString('en-IN')} has been credited to your account.`) :
+            getWarningAlert(`Amount of $${parseFloat(amount).toLocaleString('en-IN')} has been debited from your account.`)
         }
 
     <p style="color: #374151; font-size: 15px; line-height: 1.6;">
@@ -413,7 +413,7 @@ const generateTransactionEmail = (name, memberId, transactionId, accountNo, acco
     return {
         subject: `MSI - Transaction ${isCredit ? 'Credit' : 'Debit'} Alert`,
         html: getEmailWrapper(content),
-        text: `Dear ${name}, Transaction ${transactionId}: ₹${amount} ${isCredit ? 'credited to' : 'debited from'} your account ${accountNo}. New balance: ₹${balance}.`
+        text: `Dear ${name}, Transaction ${transactionId}: $${amount} ${isCredit ? 'credited to' : 'debited from'} your account ${accountNo}. New balance: $${balance}.`
     };
 };
 
@@ -442,7 +442,7 @@ const generateWithdrawalEmail = (name, memberId, transactionId, accountNo, amoun
             { label: 'Transaction ID', value: transactionId },
             { label: 'Member ID', value: memberId },
             { label: 'Account Number', value: accountNo },
-            { label: 'Amount', value: `₹${parseFloat(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+            { label: 'Amount', value: `$${parseFloat(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
             { label: 'Status', value: isSuccess ? '<span style="color: #10b981;">✓ Completed</span>' : '<span style="color: #f59e0b;">⏳ Processing</span>' },
             { label: 'Date & Time', value: new Date().toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'short' }) }
         ])}
@@ -463,7 +463,7 @@ const generateWithdrawalEmail = (name, memberId, transactionId, accountNo, amoun
     return {
         subject: `MSI - Withdrawal ${isSuccess ? 'Completed' : 'Processing'}`,
         html: getEmailWrapper(content),
-        text: `Dear ${name}, Your withdrawal request of ₹${amount} for account ${accountNo} is ${isSuccess ? 'completed' : 'being processed'}. Transaction ID: ${transactionId}.`
+        text: `Dear ${name}, Your withdrawal request of $${amount} for account ${accountNo} is ${isSuccess ? 'completed' : 'being processed'}. Transaction ID: ${transactionId}.`
     };
 };
 

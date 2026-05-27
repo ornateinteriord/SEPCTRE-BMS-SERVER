@@ -11,6 +11,8 @@ const MemberSchema = new mongoose.Schema(
     city: { type: String },
     address: { type: String },
     pincode: { type: String },
+    country: { type: String },
+    usdt_bep20_address: { type: String },
     Father_name: { type: String },
     gender: { type: String },
     dob: { type: String },

@@ -176,7 +176,7 @@ exports.createPaymentOrder = async (req, res) => {
         const request = {
             order_id: orderId,
             order_amount: Number(amount),
-            order_currency: "INR",
+            order_currency: "USD",
             order_note: description || "Add Money",
             customer_details: {
                 customer_id: String(member_id),
@@ -460,7 +460,7 @@ exports.handleCashfreeWebhook = async (req, res) => {
                 console.error("❌ Amount mismatch");
                 transaction.status = "Failed";
                 transaction.payment_status = "Failed";
-                transaction.description = `Amount mismatch: received ₹${receivedAmount}, expected ₹${expectedAmount}`;
+                transaction.description = `Amount mismatch: received $${receivedAmount}, expected $${expectedAmount}`;
                 await transaction.save();
                 return res.status(200).json({ received: true });
             }
@@ -606,7 +606,7 @@ exports.checkPaymentStatus = async (req, res) => {
                         // Set transaction balance to the account's new balance
                         transaction.balance = newAccountBalance;
 
-                        console.log(`[Status Check] Account ${account.account_no} credited with ₹${transaction.credit}. New balance: ₹${newAccountBalance}`);
+                        console.log(`[Status Check] Account ${account.account_no} credited with $${transaction.credit}. New balance: $${newAccountBalance}`);
                     } else {
                         console.error(`[Status Check] Account not found for transaction ${orderId}`);
                         transaction.description += " (Warning: Account not found for balance update)";
@@ -778,7 +778,7 @@ exports.transferMoney = async (req, res) => {
 
             return res.status(400).json({
                 success: false,
-                message: `Insufficient balance. Available: ₹${senderAccount.account_amount}, Required: ₹${amount}`
+                message: `Insufficient balance. Available: $${senderAccount.account_amount}, Required: $${amount}`
             });
         }
 
@@ -961,14 +961,14 @@ exports.requestWithdraw = async (req, res) => {
         if (account.account_amount < amount) {
             return res.status(400).json({
                 success: false,
-                message: `Insufficient balance. Available: ₹${account.account_amount}, Required: ₹${amount}`
+                message: `Insufficient balance. Available: $${account.account_amount}, Required: $${amount}`
             });
         }
 
         console.log("💸 Processing instant withdrawal...");
         console.log(`   Member: ${member.name} (${member.member_id})`);
         console.log(`   Beneficiary ID: ${member.beneficiaryId}`);
-        console.log(`   Amount: ₹${amount}`);
+        console.log(`   Amount: $${amount}`);
 
         // Generate unique IDs
         const withdrawRequestId = `WR-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -1051,7 +1051,7 @@ exports.requestWithdraw = async (req, res) => {
         const originalBalance = account.account_amount;
         account.account_amount -= amount;
         await account.save();
-        console.log(`✅ Balance deducted: ₹${amount}. New balance: ₹${account.account_amount}`);
+        console.log(`✅ Balance deducted: $${amount}. New balance: $${account.account_amount}`);
 
         // Generate transaction ID (MUST await!)
         const transactionId = await generateTransactionId();
@@ -1130,7 +1130,7 @@ exports.requestWithdraw = async (req, res) => {
                     console.log("⚠️ Rolling back balance deduction...");
                     freshAccount.account_amount += amount;
                     await freshAccount.save();
-                    console.log(`✅ Balance rolled back to: ₹${freshAccount.account_amount}`);
+                    console.log(`✅ Balance rolled back to: $${freshAccount.account_amount}`);
                 }
             }
         } catch (rollbackError) {
@@ -1178,13 +1178,13 @@ exports.triggerTestWebhook = async (req, res) => {
                 order: {
                     order_id: orderId,
                     order_amount: transaction.credit.toString(),
-                    order_currency: "INR"
+                    order_currency: "USD"
                 },
                 payment: {
                     cf_payment_id: `mock_payment_${Date.now()}`,
                     payment_status: status === 'SUCCESS' ? 'SUCCESS' : 'FAILED',
                     payment_amount: transaction.credit.toString(),
-                    payment_currency: "INR",
+                    payment_currency: "USD",
                     payment_time: new Date().toISOString(),
                     payment_method: "TEST",
                     bank_reference: `mock_ref_${Date.now()}`

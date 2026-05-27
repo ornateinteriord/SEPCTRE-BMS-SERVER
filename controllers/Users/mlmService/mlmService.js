@@ -6,17 +6,17 @@ const TransactionModel = require("../../../models/Transaction/Transaction");
  * Commission Rates for MLM System
  * 
  * Structure:
- * - Level 1 (Direct Referral): ₹100 - When a member directly refers someone
- * - Levels 2-5 (Indirect Referrals): ₹25 each
- * - Levels 6-10 (Indirect Referrals): ₹15 each
- * - Levels 11-15 (Indirect Referrals): ₹5 each
+ * - Level 1 (Direct Referral): $100 - When a member directly refers someone
+ * - Levels 2-5 (Indirect Referrals): $25 each
+ * - Levels 6-10 (Indirect Referrals): $15 each
+ * - Levels 11-15 (Indirect Referrals): $5 each
  * 
  * Example:
- * - A refers B → A gets ₹100 (Level 1)
- * - B refers C → B gets ₹100 (Level 1), A gets ₹25 (Level 2)
- * - C refers D → C gets ₹100 (Level 1), B gets ₹25 (Level 2), A gets ₹25 (Level 3)
+ * - A refers B → A gets $100 (Level 1)
+ * - B refers C → B gets $100 (Level 1), A gets $25 (Level 2)
+ * - C refers D → C gets $100 (Level 1), B gets $25 (Level 2), A gets $25 (Level 3)
  * 
- * Total potential commission per referral: ₹300 (₹100 + ₹25×4 + ₹15×5 + ₹5×5)
+ * Total potential commission per referral: $300 ($100 + $25×4 + $15×5 + $5×5)
  */
 const commissionPercentages = {
   1: 5,     // 5%
@@ -44,8 +44,8 @@ const getOrdinal = (number) => {
  * 
  * Example: If A refers B, and B refers C:
  * - When C is activated, findUplineSponsors(C) returns:
- *   - Level 1: B (C's direct sponsor) - gets ₹100
- *   - Level 2: A (B's sponsor) - gets ₹25
+ *   - Level 1: B (C's direct sponsor) - gets $100
+ *   - Level 2: A (B's sponsor) - gets $25
  */
 const findUplineSponsors = async (memberId, maxLevels = 15) => {
   const uplineSponsors = [];
@@ -89,15 +89,15 @@ const findUplineSponsors = async (memberId, maxLevels = 15) => {
  * Calculates commissions for all eligible upline sponsors when a new member joins
  * 
  * Commission Structure:
- * - Level 1 (Direct Sponsor): ₹100
- * - Levels 2-5 (Indirect Sponsors): ₹25 each
- * - Levels 6-10 (Indirect Sponsors): ₹15 each
- * - Levels 11-15 (Indirect Sponsors): ₹5 each
+ * - Level 1 (Direct Sponsor): $100
+ * - Levels 2-5 (Indirect Sponsors): $25 each
+ * - Levels 6-10 (Indirect Sponsors): $15 each
+ * - Levels 11-15 (Indirect Sponsors): $5 each
  * 
  * Example Flow:
- * - A refers B → When B activates: A gets ₹100 (Level 1)
- * - B refers C → When C activates: B gets ₹100 (Level 1), A gets ₹25 (Level 2)
- * - C refers D → When D activates: C gets ₹100 (Level 1), B gets ₹25 (Level 2), A gets ₹25 (Level 3)
+ * - A refers B → When B activates: A gets $100 (Level 1)
+ * - B refers C → When C activates: B gets $100 (Level 1), A gets $25 (Level 2)
+ * - C refers D → When D activates: C gets $100 (Level 1), B gets $25 (Level 2), A gets $25 (Level 3)
  * 
  * @param {string} newMemberId - The newly activated member's ID
  * @param {string} directSponsorId - The direct sponsor's ID (for reference)
@@ -155,11 +155,11 @@ const calculateCommissions = async (newMemberId, directSponsorId, specificAmount
             new_member_name: newMember.Name,
             amount: commissionAmount,
             payout_type: `${getOrdinal(upline.level)} Level Benefits (${pkgType})`,
-            description: `Level ${upline.level} commission (${percentage}%) from member ${newMemberId}'s ${pkgType} package (₹${packageValue})`,
+            description: `Level ${upline.level} commission (${percentage}%) from member ${newMemberId}'s ${pkgType} package ($${packageValue})`,
             sponsor_status: upline.sponsor_status
           });
 
-          console.log(`✅ Level ${upline.level}: ${upline.sponsor_name} (${upline.sponsor_id}) gets ₹${commissionAmount} (${percentage}%)`);
+          console.log(`✅ Level ${upline.level}: ${upline.sponsor_name} (${upline.sponsor_id}) gets $${commissionAmount} (${percentage}%)`);
         }
       }
     }
@@ -515,7 +515,7 @@ const distributeROICommission = async (memberId, roiAmount, session = null, cust
         status: "Completed",
         Name: upline.sponsor_name,
         mobileno: upline.sponsor_mobileno,
-        description: `ROI Level ${upline.level} benefit (${percentage}%) from member ${memberId}'s ROI (₹${roiAmount})`,
+        description: `ROI Level ${upline.level} benefit (${percentage}%) from member ${memberId}'s ROI ($${roiAmount})`,
         sponsor_status: upline.sponsor_status
       });
 
@@ -559,7 +559,7 @@ const distributeROICommission = async (memberId, roiAmount, session = null, cust
         success: true
       });
 
-      console.log(`💰 ROI Level ${upline.level}: ${upline.sponsor_id} gets ₹${commissionAmount} from ${memberId}`);
+      console.log(`💰 ROI Level ${upline.level}: ${upline.sponsor_id} gets $${commissionAmount} from ${memberId}`);
     }
 
     return results;

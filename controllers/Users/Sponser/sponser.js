@@ -70,7 +70,7 @@ const checkSponsorReward = async (req, res) => {
 
     let message = "";
     if (!hasRequiredPackage) {
-      message = `❌ ${member.Name} does not have the required package (standerd - ₹2600).`;
+      message = `❌ ${member.Name} does not have the required package (standerd - $2600).`;
     } else if (sponsoredCount < 2) {
       message = `⚠️ ${member.Name} has the correct package but needs ${2 - sponsoredCount} more sponsored member(s) to qualify.`;
     } else {
