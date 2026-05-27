@@ -120,7 +120,7 @@ const validateCommissionEligibility = (transaction, config) => {
         };
     }
 
-    console.log(`   Transaction Amount: ₹${transaction.credit}`);
+    console.log(`   Transaction Amount: $${transaction.credit}`);
 
     // Check if account type is commission-eligible (e.g. Pigmy/AGP005)
     const accountTypeId = transaction.account_type?.toString();
@@ -421,7 +421,7 @@ const distributeCommissions = async (commissions) => {
                     commissionRecord.credited_at = new Date();
                     await commissionRecord.save();
 
-                    console.log(`✅ Commission credited to agent ${commission.beneficiary_id}: ₹${commission.commission_amount}`);
+                    console.log(`✅ Commission credited to agent ${commission.beneficiary_id}: $${commission.commission_amount}`);
 
                     results.successful.push({
                         commission_id: commissionId,
@@ -464,7 +464,7 @@ const distributeCommissions = async (commissions) => {
                     commissionRecord.credited_at = new Date();
                     await commissionRecord.save();
 
-                    console.log(`✅ Commission credited to member ${commission.beneficiary_id}: ₹${commission.commission_amount}`);
+                    console.log(`✅ Commission credited to member ${commission.beneficiary_id}: $${commission.commission_amount}`);
 
                     results.successful.push({
                         commission_id: commissionId,
@@ -504,7 +504,7 @@ const processTransactionCommission = async (transaction) => {
         console.log("=".repeat(60));
         console.log(`📄 Transaction ID: ${transaction.transaction_id}`);
         console.log(`👤 Member ID: ${transaction.member_id}`);
-        console.log(`💰 Amount: ₹${transaction.credit}`);
+        console.log(`💰 Amount: $${transaction.credit}`);
         console.log(`🏦 Account Type: ${transaction.account_type}`);
         console.log("-".repeat(60));
 
@@ -515,7 +515,7 @@ const processTransactionCommission = async (transaction) => {
             console.log("❌ No commissions to distribute");
             console.log("   Possible reasons:");
             console.log("   - Member has no introducer");
-            console.log("   - Amount below minimum (₹100)");
+            console.log("   - Amount below minimum ($100)");
             console.log("   - Commission system disabled");
             console.log("   - Account type not eligible");
             console.log("=".repeat(60) + "\n");
@@ -532,7 +532,7 @@ const processTransactionCommission = async (transaction) => {
             console.log(`   └─ Level: ${comm.level}`);
             console.log(`   └─ Beneficiary: ${comm.beneficiary_name} (${comm.beneficiary_id})`);
             console.log(`   └─ Rate: ${comm.commission_rate}%`);
-            console.log(`   └─ Amount: ₹${comm.commission_amount.toFixed(2)}`);
+            console.log(`   └─ Amount: $${comm.commission_amount.toFixed(2)}`);
         });
         console.log("-".repeat(60));
 
@@ -547,7 +547,7 @@ const processTransactionCommission = async (transaction) => {
         if (results.successful.length > 0) {
             console.log("\n   Credited:");
             results.successful.forEach(s => {
-                console.log(`   ✓ ${s.beneficiary_id}: ₹${s.amount.toFixed(2)}`);
+                console.log(`   ✓ ${s.beneficiary_id}: $${s.amount.toFixed(2)}`);
             });
         }
 

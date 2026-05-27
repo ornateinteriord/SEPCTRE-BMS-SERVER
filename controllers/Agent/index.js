@@ -98,7 +98,7 @@ const withdrawCommission = async (req, res) => {
         if (amount > availableBalance) {
             return res.status(400).json({
                 success: false,
-                message: `Insufficient balance. Available: ₹${availableBalance.toFixed(2)}`
+                message: `Insufficient balance. Available: $${availableBalance.toFixed(2)}`
             });
         }
 
@@ -374,7 +374,7 @@ const makePayment = async (req, res) => {
         if (account.account_amount < amount) {
             return res.status(400).json({
                 success: false,
-                message: `Insufficient balance. Available: ₹${account.account_amount}`
+                message: `Insufficient balance. Available: $${account.account_amount}`
             });
         }
 

@@ -39,7 +39,7 @@ const createPayment = async (req, res) => {
             if ((account.account_amount || 0) < amount) {
                 return res.status(400).json({
                     success: false,
-                    message: `Insufficient balance! Account ${account_details.account_no || account.account_no} has ₹${(account.account_amount || 0).toFixed(2)} but ₹${amount.toFixed(2)} is required. Cannot deduct the entered amount.`
+                    message: `Insufficient balance! Account ${account_details.account_no || account.account_no} has $${(account.account_amount || 0).toFixed(2)} but $${amount.toFixed(2)} is required. Cannot deduct the entered amount.`
                 });
             }
         }

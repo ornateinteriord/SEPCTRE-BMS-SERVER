@@ -17,6 +17,11 @@ const AddOnRequestSchema = new mongoose.Schema({
   roi_last_payout_date: { type: String },
   roi_start_date: { type: String },
 
+  // Load Fund specific fields
+  payment_method: { type: String, enum: ["crypto", "wallet"], default: "crypto" },
+  tx_no: { type: String, default: null },
+  screenshot_url: { type: String, default: null },
+
   admin_audit: {
     admin_id: { type: String },
     timestamp: { type: Date }

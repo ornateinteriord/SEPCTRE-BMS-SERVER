@@ -254,7 +254,7 @@ const createMaturityPayment = async (req, res) => {
         if (account.account_amount < amount) {
             return res.status(400).json({
                 success: false,
-                message: `Insufficient account balance. Available: ₹${account.account_amount}, Requested: ₹${amount}`
+                message: `Insufficient account balance. Available: $${account.account_amount}, Requested: $${amount}`
             });
         }
 

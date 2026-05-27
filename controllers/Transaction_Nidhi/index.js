@@ -118,7 +118,7 @@ const transferMoney = async (req, res) => {
 
             return res.status(400).json({
                 success: false,
-                message: `Insufficient balance. Available: ₹${senderAccount.account_amount}, Required: ₹${amount}`
+                message: `Insufficient balance. Available: $${senderAccount.account_amount}, Required: $${amount}`
             });
         }
 

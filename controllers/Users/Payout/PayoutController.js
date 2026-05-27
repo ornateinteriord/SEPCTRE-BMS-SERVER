@@ -372,7 +372,7 @@ const climeRewardLoan = async (req, res) => {
       member_id: member.Member_id,
       Name: member.Name,
       mobileno: member.mobileno,
-      description: `Reward loan request (Level ${loanDetails.level}) of ₹${loanAmount}${note ? ` - ${note}` : ""
+      description: `Reward loan request (Level ${loanDetails.level}) of $${loanAmount}${note ? ` - ${note}` : ""
         }`,
       transaction_type: "Reward Loan Request",
       ew_credit: loanAmount,
@@ -640,7 +640,7 @@ const repaymentLoan = async (req, res) => {
       member_id: memberId,
       Name: member?.Name || loanTransaction.Name,
       mobileno: member?.mobileno || loanTransaction.mobileno,
-      description: `Loan Repayment of ₹${actualPayment}. Remaining Due: ₹${newDueAmount.toFixed(2)}`,
+      description: `Loan Repayment of $${actualPayment}. Remaining Due: $${newDueAmount.toFixed(2)}`,
       transaction_type: "Loan Repayment",
       ew_credit: currentDueAmount,
       ew_debit: actualPayment.toFixed(2),
@@ -667,7 +667,7 @@ const repaymentLoan = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Loan repayment of ₹${actualPayment} processed successfully.`,
+      message: `Loan repayment of $${actualPayment} processed successfully.`,
       data: {
         member_id: memberId,
         payment_amount: actualPayment,
